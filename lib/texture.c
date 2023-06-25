@@ -8,7 +8,7 @@ struct texture {
 	int height;
 	float invw;
 	float invh;
-	RID id;
+	RID id;		/// 全局数组中的 idx
 	RID fb; /// rt 's frame buffer
 };
 
@@ -18,15 +18,15 @@ struct texture_pool {
 };
 
 static struct texture_pool POOL;
-static struct render *R = NULL;
+static struct render *g_R = NULL;
 
-void 
+void
 texture_initrender(struct render *r) {
-	R = r;
+	g_R = r;
 }
 
 static inline uint32_t
-average4(uint32_t c[4]) {
+__average4(uint32_t c[4]) {
 	int i;
 	uint32_t hi = 0;
 	uint32_t low = 0;
@@ -38,11 +38,19 @@ average4(uint32_t c[4]) {
 	hi = (hi/4) & 0x00ff00ff;
 	low = (low/4) & 0x00ff00ff;
 
-	return hi << 8 | low; 
+	return hi << 8 | low;
 }
 
-static void 
-texture_downsample(enum TEXTURE_FORMAT type, int *width, int *height, void *buffer) {
+/**
+ * @brief 下采样(缩小)图片 使用 CPU
+ *
+ * @param type
+ * @param width
+ * @param height
+ * @param buffer
+ */
+static void
+_texture_downsample(enum TEXTURE_FORMAT type, int *width, int *height, void *buffer) {
 	int w = *width;
 	int h = *height;
 	if (w%2 == 1 || h%2 == 1)
@@ -57,7 +65,7 @@ texture_downsample(enum TEXTURE_FORMAT type, int *width, int *height, void *buff
 	for (i=0;i<h;i+=2) {
 		for (j=0;j<w;j+=2) {
 			uint32_t c[4] = { src[j], src[j+1], src[j+w], src[j+w+1] };
-			*dst = average4(c);
+			*dst = __average4(c);
 			++dst;
 		}
 		src += w*2;
@@ -66,7 +74,7 @@ texture_downsample(enum TEXTURE_FORMAT type, int *width, int *height, void *buff
 	*height = h/2;
 }
 
-const char * 
+const char *
 texture_load(int id, enum TEXTURE_FORMAT pixel_format, int pixel_width, int pixel_height, void *data, int downsample) {
 	if (id >= MAX_TEXTURE) {
 		return "Too many texture";
@@ -74,14 +82,14 @@ texture_load(int id, enum TEXTURE_FORMAT pixel_format, int pixel_width, int pixe
 	struct texture * tex = &POOL.tex[id];
 	if (id >= POOL.count) {
 		POOL.count = id + 1;
-	} 
+	}
 	tex->fb = 0;
 	tex->width = pixel_width;
 	tex->height = pixel_height;
 	tex->invw = 1.0f / (float)pixel_width;
 	tex->invh = 1.0f / (float)pixel_height;
 	if (tex->id == 0) {
-		tex->id = render_texture_create(R, pixel_width, pixel_height, pixel_format, TEXTURE_2D, 0);
+		tex->id = render_texture_create(g_R, pixel_width, pixel_height, pixel_format, TEXTURE_2D, 0);
 	}
 	if (data == NULL) {
 		// empty texture
@@ -89,9 +97,9 @@ texture_load(int id, enum TEXTURE_FORMAT pixel_format, int pixel_width, int pixe
 	}
 
 	if (downsample) {
-		texture_downsample(pixel_format, &pixel_width, &pixel_height, data);
+		_texture_downsample(pixel_format, &pixel_width, &pixel_height, data);
 	}
-	render_texture_update(R, tex->id, pixel_width, pixel_height, data, 0, 0);
+	render_texture_update(g_R, tex->id, pixel_width, pixel_height, data, 0, 0);
 
 	return NULL;
 }
@@ -112,8 +120,8 @@ texture_new_rt(int id, int w, int h){
 	tex->invw = 1.0f / (float) w;
 	tex->invh = 1.0f / (float) h;
 	if (tex->id == 0) {
-		tex->fb = render_target_create(R, w, h, TEXTURE_RGBA8);
-		tex->id = render_target_texture(R, tex->fb);
+		tex->fb = render_target_create(g_R, w, h, TEXTURE_RGBA8);
+		tex->id = render_target_texture(g_R, tex->fb);
 	}
 
 	return NULL;
@@ -125,7 +133,7 @@ texture_active_rt(int id) {
 		return "Invalid rt id";
 	struct texture *tex = &POOL.tex[id];
 
-	render_set(R, TARGET, tex->fb, 0);
+	render_set(g_R, TARGET, tex->fb, 0);
 
 	return NULL;
 }
@@ -162,16 +170,16 @@ texture_coord(int id, float x, float y, uint16_t *u, uint16_t *v) {
 	return 0;
 }
 
-void 
+void
 texture_unload(int id) {
 	if (id < 0 || id >= POOL.count)
 		return;
 	struct texture *tex = &POOL.tex[id];
 	if (tex->id == 0)
 		return;
-	render_release(R, TEXTURE, tex->id);
+	render_release(g_R, TEXTURE, tex->id);
 	if (tex->fb != 0)
-		render_release(R, TARGET, tex->fb);
+		render_release(g_R, TARGET, tex->fb);
 	tex->id = 0;
 	tex->fb = 0;
 }
@@ -184,7 +192,7 @@ texture_glid(int id) {
 	return tex->id;
 }
 
-void 
+void
 texture_clearall() {
 	int i;
 	for (i=0;i<POOL.count;i++) {
@@ -192,7 +200,7 @@ texture_clearall() {
 	}
 }
 
-void 
+void
 texture_exit() {
 	texture_clearall();
 	POOL.count = 0;
@@ -202,7 +210,7 @@ void
 texture_set_inv(int id, float invw, float invh) {
    if (id < 0 || id >= POOL.count)
        return ;
-    
+
     struct texture *tex = &POOL.tex[id];
     tex->invw = invw;
     tex->invh = invh;
@@ -212,7 +220,7 @@ void
 texture_swap(int ida, int idb) {
     if (ida < 0 || idb < 0 || ida >= POOL.count || idb >= POOL.count)
         return ;
-    
+
     struct texture tex = POOL.tex[ida];
     POOL.tex[ida] = POOL.tex[idb];
     POOL.tex[idb] = tex;
@@ -224,7 +232,7 @@ texture_size(int id, int *width, int *height) {
         *width = *height = 0;
         return ;
     }
-    
+
     struct texture *tex = &POOL.tex[id];
     *width = tex->width;
     *height = tex->height;
@@ -235,15 +243,15 @@ texture_delete_framebuffer(int id) {
     if (id < 0 || id >= POOL.count) {
         return;
     }
-    
+
     struct texture *tex = &POOL.tex[id];
     if (tex->fb != 0) {
-		render_release(R, TARGET, tex->fb);
+		render_release(g_R, TARGET, tex->fb);
         tex->fb = 0;
     }
 }
 
-const char * 
+const char *
 texture_update(int id, int pixel_width, int pixel_height, void *data) {
 	if (id >= MAX_TEXTURE) {
 		return "Too many texture";
@@ -256,7 +264,7 @@ texture_update(int id, int pixel_width, int pixel_height, void *data) {
 	if(tex->id == 0){
 		return "not a valid texture";
 	}
-	render_texture_update(R, tex->id, pixel_width, pixel_height, data, 0, 0);
+	render_texture_update(g_R, tex->id, pixel_width, pixel_height, data, 0, 0);
 
 	return NULL;
 }

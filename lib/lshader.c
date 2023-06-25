@@ -40,7 +40,7 @@ lunload(lua_State *L) {
 
 /*
 	int texture
-	table float[16]  
+	table float[16]
 	uint32_t color
 	uint32_t additive
  */
@@ -51,7 +51,7 @@ ldraw(lua_State *L) {
 	if (texid == 0) {
 		lua_pushboolean(L,0);
 		return 1;
-	} 
+	}
 	luaL_checktype(L, 2, LUA_TTABLE);
 	uint32_t color = 0xffffffff;
 
@@ -205,7 +205,7 @@ lshader_texture(lua_State *L) {
 	return 0;
 }
 
-int 
+int
 ejoy2d_shader(lua_State *L) {
 	luaL_Reg l[] = {
 		{"load", lload},

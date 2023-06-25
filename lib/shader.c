@@ -18,6 +18,8 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#include "log.h"
+
 #define MAX_PROGRAM 16
 
 #define BUFFER_OFFSET(f) ((intptr_t)&(((struct vertex *)NULL)->f))
@@ -97,7 +99,7 @@ shader_init() {
 		idxs[i*6+4] = i*4+2;
 		idxs[i*6+5] = i*4+3;
 	}
-	
+
 	rs->index_buffer = render_buffer_create(rs->R, INDEXBUFFER, idxs, 6 * MAX_COMMBINE, sizeof(uint16_t));
 	rs->vertex_buffer = render_buffer_create(rs->R, VERTEXBUFFER, NULL,  4 * MAX_COMMBINE, sizeof(struct vertex));
 
@@ -143,7 +145,7 @@ program_init(struct program * p, const char *FS, const char *VS, int texture, co
 	render_shader_bind(R, 0);
 }
 
-void 
+void
 shader_load(int prog, const char *fs, const char *vs, int texture, const char ** texture_uniform_name) {
 	struct render_state *rs = RS;
 	assert(prog >=0 && prog < MAX_PROGRAM);
@@ -152,12 +154,18 @@ shader_load(int prog, const char *fs, const char *vs, int texture, const char **
 		render_release(RS->R, SHADER, p->prog);
 		p->prog = 0;
 	}
-	program_init(p, fs, vs, texture, texture_uniform_name);
+
+    program_init(p, fs, vs, texture, texture_uniform_name);
+
+  	log_printf(NULL, "! ------------------>\n");
+  	log_printf(NULL, "!vs:\n%s\n", vs);
+	log_printf(NULL, "!fs:\n%s\n\n", fs);
+
 	p->texture_number = texture;
 	RS->current_program = -1;
 }
 
-void 
+void
 shader_unload() {
 	if (RS == NULL) {
 		return;
@@ -191,7 +199,7 @@ drawcall_count() {
 	}
 }
 
-static void 
+static void
 renderbuffer_commit(struct render_buffer * rb) {
 	struct render *R = RS->R;
 	render_draw(R, DRAW_TRIANGLE, 0, 6 * rb->object);
@@ -210,7 +218,7 @@ rs_commit() {
 	rb->object = 0;
 }
 
-void 
+void
 shader_drawbuffer(struct render_buffer * rb, float tx, float ty, float scale) {
 	rs_commit();
 
@@ -254,7 +262,7 @@ apply_uniform(struct program *p) {
 	for (i=0;i<p->uniform_number;i++) {
 		if (p->uniform_change[i]) {
 			struct uniform * u = &p->uniform[i];
-			if (u->loc >=0) 
+			if (u->loc >=0)
 				render_shader_setuniform(R, u->loc, u->type, p->uniform_value + u->offset);
 		}
 	}
@@ -310,7 +318,7 @@ shader_drawpolygon(int n, const struct vertex_pack *vb, uint32_t color, uint32_t
 	} while (i<n-1);
 }
 
-void 
+void
 shader_flush() {
 	rs_commit();
 }
@@ -335,22 +343,22 @@ shader_blend(int m1, int m2) {
 	}
 }
 
-void 
+void
 shader_clear(unsigned long argb) {
 	render_clear(RS->R, MASKC, argb);
 }
 
-int 
+int
 shader_version() {
 	return render_version(RS->R);
 }
 
-void 
+void
 shader_scissortest(int enable) {
 	render_enablescissor(RS->R, enable);
 }
 
-int 
+int
 shader_uniformsize(enum UNIFORM_FORMAT t) {
 	int n = 0;
 	switch(t) {
@@ -379,7 +387,7 @@ shader_uniformsize(enum UNIFORM_FORMAT t) {
 	return n;
 }
 
-void 
+void
 shader_setuniform(int prog, int index, enum UNIFORM_FORMAT t, float *v) {
 	rs_commit();
 	struct program * p = &RS->program[prog];
@@ -392,7 +400,7 @@ shader_setuniform(int prog, int index, enum UNIFORM_FORMAT t, float *v) {
 	p->uniform_change[index] = true;
 }
 
-int 
+int
 shader_adduniform(int prog, const char * name, enum UNIFORM_FORMAT t) {
 	// reset current_program
 	assert(prog >=0 && prog < MAX_PROGRAM);
@@ -425,7 +433,7 @@ struct material {
 	bool reset;
 };
 
-int 
+int
 material_size(int prog) {
 	if (prog < 0 || prog >= MAX_PROGRAM)
 		return 0;
@@ -438,7 +446,7 @@ material_size(int prog) {
 	return sizeof(struct material) + (total-1) * sizeof(float);
 }
 
-struct material * 
+struct material *
 material_init(void *self, int size, int prog) {
 	int rsz = material_size(prog);
 	struct program *p = &RS->program[prog];
@@ -455,7 +463,7 @@ material_init(void *self, int size, int prog) {
 	return m;
 }
 
-int 
+int
 material_setuniform(struct material *m, int index, int n, const float *v) {
 	struct program * p = m->p;
 	assert(index >= 0 && index < p->uniform_number);
@@ -469,7 +477,7 @@ material_setuniform(struct material *m, int index, int n, const float *v) {
 	return 0;
 }
 
-void 
+void
 material_apply(int prog, struct material *m) {
 	struct program * p = m->p;
 	if (p != &RS->program[prog])

@@ -10,7 +10,7 @@
 
 static struct render *R = NULL;
 
-void 
+void
 renderbuffer_initrender(struct render *r) {
 	R = r;
 }
@@ -85,7 +85,7 @@ drawquad(struct render_buffer *rb, struct pack_picture *picture, const struct sp
 }
 
 static int
-polygon_quad(struct render_buffer *rb, const struct vertex_pack *vbp, uint32_t color, uint32_t additive, int max, int index) {
+_polygon_quad(struct render_buffer *rb, const struct vertex_pack *vbp, uint32_t color, uint32_t additive, int max, int index) {
 	struct vertex_pack vb[4];
 	int i;
 	vb[0] = vbp[0]; // first point
@@ -98,11 +98,11 @@ polygon_quad(struct render_buffer *rb, const struct vertex_pack *vbp, uint32_t c
 }
 
 static int
-add_polygon(struct render_buffer *rb, int n, const struct vertex_pack *vb, uint32_t color, uint32_t additive) {
+_add_polygon(struct render_buffer *rb, int n, const struct vertex_pack *vb, uint32_t color, uint32_t additive) {
 	int i = 0;
 	--n;
 	do {
-		if (polygon_quad(rb, vb, color, additive, n, i)) {
+		if (_polygon_quad(rb, vb, color, additive, n, i)) {
 			return 1;
 		}
 		i+=2;
@@ -138,13 +138,13 @@ drawpolygon(struct render_buffer *rb, struct sprite_pack *pack, struct pack_poly
 		for (j=0;j<pn;j++) {
 			int xx = screen_coord[j*2+0];
 			int yy = screen_coord[j*2+1];
-		
+
 			vb[j].vx = (xx * m[0] + yy * m[2]) / 1024 + m[4];
 			vb[j].vy = (xx * m[1] + yy * m[3]) / 1024 + m[5];
 			vb[j].tx = texture_coord[j*2+0];
 			vb[j].ty = texture_coord[j*2+1];
 		}
-		if (add_polygon(rb, pn, vb, arg->color, arg->additive)) {
+		if (_add_polygon(rb, pn, vb, arg->color, arg->additive)) {
 			rb->object = object;
 			return 1;
 		}
@@ -162,7 +162,7 @@ anchor_update(struct sprite *s, struct sprite_trans *arg) {
 	}
 }
 
-int 
+int
 drawsprite(struct render_buffer *rb, struct sprite *s, struct sprite_trans * ts) {
 	struct sprite_trans temp;
 	struct matrix temp_matrix;
@@ -221,7 +221,7 @@ drawsprite(struct render_buffer *rb, struct sprite *s, struct sprite_trans * ts)
 	return -1;
 }
 
-int 
+int
 renderbuffer_drawsprite(struct render_buffer *rb, struct sprite *s) {
 	if ((s->flags & SPRFLAG_INVISIBLE) == 0) {
 		return drawsprite(rb, s, NULL);
@@ -238,7 +238,7 @@ renderbuffer_upload(struct render_buffer *rb) {
 	}
 }
 
-void 
+void
 renderbuffer_unload(struct render_buffer *rb) {
 	if (rb->vbid) {
 		render_release(R, VERTEXBUFFER, rb->vbid);
@@ -246,7 +246,7 @@ renderbuffer_unload(struct render_buffer *rb) {
 	}
 }
 
-void 
+void
 renderbuffer_init(struct render_buffer *rb) {
 	rb->object = 0;
 	rb->texid = 0;
