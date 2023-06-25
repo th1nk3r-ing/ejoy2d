@@ -1,3 +1,5 @@
+#define GL_SILENCE_DEPRECATION
+
 #include <GLFW/glfw3.h>
 
 #include <sys/time.h>
@@ -56,7 +58,7 @@ _glfw_pos_cb(GLFWwindow* window, double xpos, double ypos) {
 }
 
 
-static void 
+static void
 _glfw_btn_cb(GLFWwindow* window, int button, int action, int mods) {
   CONTEXT->is_press = (action==GLFW_PRESS)?(true):(false);
   double xpos, ypos;
@@ -118,7 +120,7 @@ _version_info() {
 }
 
 
-int 
+int
 main(int argc, char *argv[]) {
   struct GLFW_context ctx_value = {
     .window = NULL,

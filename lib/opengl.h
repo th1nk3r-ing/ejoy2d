@@ -8,6 +8,7 @@
 #import <OpenGLES/ES2/glext.h>
 
 #elif defined(__MACOSX)
+#define GL_SILENCE_DEPRECATION
 #define OPENGLES 3
 #include <OpenGL/gl3.h>
 #include <OpenGL/glext.h>
