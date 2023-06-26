@@ -42,7 +42,7 @@ renderbuffer_add(struct render_buffer *rb, const struct vertex_pack vb[4], uint3
 }
 
 static int
-update_tex(struct render_buffer *rb, int id) {
+_update_tex(struct render_buffer *rb, int id) {
 	if (rb->object == 0) {
 		rb->texid = id;
 	} else if (rb->texid != id) {
@@ -65,7 +65,7 @@ drawquad(struct render_buffer *rb, struct pack_picture *picture, const struct sp
 	int object = rb->object;
 	for (i=0;i<picture->n;i++) {
 		struct pack_quad *q = &picture->rect[i];
-		if (update_tex(rb, q->texid)) {
+		if (_update_tex(rb, q->texid)) {
 			rb->object = object;
 			return -1;
 		}
@@ -123,7 +123,7 @@ drawpolygon(struct render_buffer *rb, struct sprite_pack *pack, struct pack_poly
 	int object = rb->object;
 	for (i=0;i<poly->n;i++) {
 		struct pack_poly_data *p = &poly->poly[i];
-		if (update_tex(rb, p->texid)) {
+		if (_update_tex(rb, p->texid)) {
 			rb->object = object;
 			return -1;
 		}

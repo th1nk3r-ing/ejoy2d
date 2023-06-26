@@ -132,7 +132,7 @@ shader_reset() {
 }
 
 static void
-program_init(struct program * p, const char *FS, const char *VS, int texture, const char ** texture_uniform_name) {
+_program_init(struct program * p, const char *FS, const char *VS, int texture, const char ** texture_uniform_name) {
 	struct render *R = RS->R;
 	memset(p, 0, sizeof(*p));
 	struct shader_init_args args;
@@ -155,7 +155,7 @@ shader_load(int prog, const char *fs, const char *vs, int texture, const char **
 		p->prog = 0;
 	}
 
-    program_init(p, fs, vs, texture, texture_uniform_name);
+    _program_init(p, fs, vs, texture, texture_uniform_name);
 
   	log_printf(NULL, "! ------------------>\n");
   	log_printf(NULL, "!vs:\n%s\n", vs);
@@ -200,27 +200,27 @@ drawcall_count() {
 }
 
 static void
-renderbuffer_commit(struct render_buffer * rb) {
+_renderbuffer_commit(struct render_buffer * rb) {
 	struct render *R = RS->R;
 	render_draw(R, DRAW_TRIANGLE, 0, 6 * rb->object);
 }
 
 static void
-rs_commit() {
+_rs_commit() {
 	struct render_buffer * rb = &(RS->vb);
 	if (rb->object == 0)
 		return;
 	RS->drawcall++;
 	struct render *R = RS->R;
 	render_buffer_update(R, RS->vertex_buffer, rb->vb, 4 * rb->object);
-	renderbuffer_commit(rb);
+	_renderbuffer_commit(rb);
 
 	rb->object = 0;
 }
 
 void
 shader_drawbuffer(struct render_buffer * rb, float tx, float ty, float scale) {
-	rs_commit();
+	_rs_commit();
 
 	RID glid = texture_glid(rb->texid);
 	if (glid == 0)
@@ -240,7 +240,7 @@ shader_drawbuffer(struct render_buffer * rb, float tx, float ty, float scale) {
 	shader_program(PROGRAM_RENDERBUFFER, NULL);
 	RS->drawcall++;
 
-	renderbuffer_commit(rb);
+	_renderbuffer_commit(rb);
 
 	render_set(RS->R, VERTEXBUFFER, RS->vertex_buffer, 0);
 }
@@ -249,7 +249,7 @@ void
 shader_texture(int id, int channel) {
 	assert(channel < MAX_TEXTURE_CHANNEL);
 	if (RS->tex[channel] != id) {
-		rs_commit();
+		_rs_commit();
 		RS->tex[channel] = id;
 		render_set(RS->R, TEXTURE, id, channel);
 	}
@@ -273,7 +273,7 @@ void
 shader_program(int n, struct material *m) {
 	struct program *p = &RS->program[n];
 	if (RS->current_program != n || p->reset_uniform || m) {
-		rs_commit();
+		_rs_commit();
 	}
 	if (RS->current_program != n) {
 		RS->current_program = n;
@@ -291,7 +291,7 @@ shader_program(int n, struct material *m) {
 void
 shader_draw(const struct vertex_pack vb[4], uint32_t color, uint32_t additive) {
 	if (renderbuffer_add(&RS->vb, vb, color, additive)) {
-		rs_commit();
+		_rs_commit();
 	}
 }
 
@@ -320,13 +320,13 @@ shader_drawpolygon(int n, const struct vertex_pack *vb, uint32_t color, uint32_t
 
 void
 shader_flush() {
-	rs_commit();
+	_rs_commit();
 }
 
 void
 shader_defaultblend() {
 	if (RS->blendchange) {
-		rs_commit();
+		_rs_commit();
 		RS->blendchange = 0;
 		render_setblend(RS->R, BLEND_ONE, BLEND_ONE_MINUS_SRC_ALPHA);
 	}
@@ -335,7 +335,7 @@ shader_defaultblend() {
 void
 shader_blend(int m1, int m2) {
 	if (m1 != BLEND_GL_ONE || m2 != BLEND_GL_ONE_MINUS_SRC_ALPHA) {
-		rs_commit();
+		_rs_commit();
 		RS->blendchange = 1;
 		enum BLEND_FORMAT src = blend_mode(m1);
 		enum BLEND_FORMAT dst = blend_mode(m2);
@@ -389,7 +389,7 @@ shader_uniformsize(enum UNIFORM_FORMAT t) {
 
 void
 shader_setuniform(int prog, int index, enum UNIFORM_FORMAT t, float *v) {
-	rs_commit();
+	_rs_commit();
 	struct program * p = &RS->program[prog];
 	assert(index >= 0 && index < p->uniform_number);
 	struct uniform *u = &p->uniform[index];

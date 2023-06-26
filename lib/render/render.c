@@ -135,7 +135,7 @@ check_opengl_error_debug(struct render *R, const char *filename, int line) {
 	}
 }
 
-// what should be VERTEXBUFFER or INDEXBUFFER
+// what should be VERTEXBUFFER (VBO) or INDEXBUFFER (IBO), 实际数据的存储 buffer
 RID
 render_buffer_create(struct render *R, enum RENDER_OBJ what, const void *data, int n, int stride) {
 	GLenum gltype;
@@ -207,7 +207,7 @@ render_register_vertexlayout(struct render *R, int n, struct vertex_attrib * att
 }
 
 static GLuint
-compile(struct render *R, const char * source, int type) {
+_compile(struct render *R, const char * source, int type) {
 	GLint status;
 
 	GLuint shader = glCreateShader(type);
@@ -233,8 +233,14 @@ compile(struct render *R, const char * source, int type) {
 	return shader;
 }
 
-static int
-link(struct render *R, GLuint prog) {
+/**
+ * @brief 链接
+ *
+ * @param R
+ * @param prog
+ * @return int
+ */
+static int _link(struct render *R, GLuint prog) {
 	GLint status;
 	glLinkProgram(prog);
 
@@ -255,8 +261,8 @@ link(struct render *R, GLuint prog) {
 }
 
 static int
-compile_link(struct render *R, struct shader *s, const char * VS, const char *FS) {
-	GLuint fs = compile(R, FS, GL_FRAGMENT_SHADER);
+_compile_link(struct render *R, struct shader *s, const char * VS, const char *FS) {
+	GLuint fs = _compile(R, FS, GL_FRAGMENT_SHADER);
 	if (fs == 0) {
 		log_printf(&R->log, "Can't compile fragment shader");
 		return 0;
@@ -264,7 +270,7 @@ compile_link(struct render *R, struct shader *s, const char * VS, const char *FS
 		glAttachShader(s->glid, fs);
 	}
 
-	GLuint vs = compile(R, VS, GL_VERTEX_SHADER);
+	GLuint vs = _compile(R, VS, GL_VERTEX_SHADER);
 	if (vs == 0) {
 		log_printf(&R->log, "Can't compile vertex shader");
 		return 0;
@@ -281,7 +287,7 @@ compile_link(struct render *R, struct shader *s, const char * VS, const char *FS
 	for (i=0;i<a->n;i++) {
 		struct vertex_attrib *va = &a->a[i];
 		struct attrib_layout *al = &s->a[i];
-		glBindAttribLocation(s->glid, i, va->name);
+		glBindAttribLocation(s->glid, i, va->name);	// 要在 link 之前指定数据结构
 		al->vbslot = va->vbslot;
 		al->offset = va->offset;
 		al->size = va->n;
@@ -303,7 +309,7 @@ compile_link(struct render *R, struct shader *s, const char * VS, const char *FS
 		}
 	}
 
-	return link(R, s->glid);
+	return _link(R, s->glid);
 }
 
 RID
@@ -313,7 +319,7 @@ render_shader_create(struct render *R, struct shader_init_args *args) {
 		return 0;
 	}
 	s->glid = glCreateProgram();
-	if (!compile_link(R, s, args->vs, args->fs)) {
+	if (!_compile_link(R, s, args->vs, args->fs)) {
 		glDeleteProgram(s->glid);
 		array_free(&R->shader, s);
 		return 0;
@@ -326,7 +332,7 @@ render_shader_create(struct render *R, struct shader_init_args *args) {
 	}
 
 #ifdef VAO_ENABLE
-	glGenVertexArrays(1, &s->glvao);
+	glGenVertexArrays(1, &s->glvao);	// NOTE: VAO
 	for (i=0;i<MAX_VB_SLOT;i++) {
 		s->vbslot[i] = 0;
 	}
@@ -453,13 +459,15 @@ render_shader_bind(struct render *R, RID id) {
 	R->program = id;
 	R->changeflag |= CHANGE_VERTEXARRAY;
 	struct shader * s = (struct shader *)array_ref(&R->shader, id);
+	uint32_t pId = 0;
 	if (s) {
 		glUseProgram(s->glid);
 		apply_texture_uniform(s);
+		pId = s->glid;
 	} else {
 		glUseProgram(0);
 	}
-
+	log_printf(NULL, "! time:[%u] useProgram:[%d] \n", getNowtime(), pId);
 	CHECK_GL_ERROR
 }
 
@@ -1030,6 +1038,7 @@ render_draw(struct render *R, enum DRAW_MODE mode, int fromidx, int ni) {
 		} else {
 			offset *= sizeof(short);
 		}
+		log_printf(NULL, "! time:[%u] draw \n", getNowtime());
 		glDrawElements(draw_mode[mode], ni, type, (char *)0 + offset);
 		CHECK_GL_ERROR
 	}

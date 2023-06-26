@@ -1,13 +1,14 @@
 #include "log.h"
 #include <stdarg.h>
+#include <sys/time.h>
 
-void 
+void
 log_init(struct log *log, FILE *f) {
 	log->f = f;
 }
 
 /*
-void 
+void
 log_printf(struct log *log, const char * format, ...) {
 	va_list ap;
 	va_start(ap, format);
@@ -36,4 +37,12 @@ log_printf(struct log *log,const char * format, ...) {
 		va_end(ap);
 		exit(1);
 	}
+}
+
+uint32_t getNowtime(void)
+{
+  struct timespec curTime;
+
+  clock_gettime(CLOCK_MONOTONIC, &curTime);
+  return (uint32_t)((curTime.tv_sec * 1000) + curTime.tv_nsec / 1000000);
 }
